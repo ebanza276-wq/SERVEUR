@@ -10,7 +10,8 @@ from flask_jwt_extended import (
     jwt_required,
     get_jwt_identity
 )
-
+from werkzeug.utils import secure_filename
+from flask import send_from_directory
 import psutil
 import os
 import time
@@ -30,7 +31,7 @@ app.config["JWT_SECRET_KEY"] = "Votre_Cle_Secrete_Tres_Longue"
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 db = SQLAlchemy(app)
 jwt = JWTManager(app)
-UPLOAD_FOLDER = "uploads"
+UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # =========================
@@ -528,7 +529,42 @@ def get_recupere(user_id):
             "name": all.name,
         })
     return jsonify(result)
+@app.route("/upload", methods=["POST"])
+def upload_image():
+
+    if "image" not in request.files:
+        return jsonify({
+            "success": False,
+            "message": "Aucune image envoyée"
+        }), 400
+
+    fichier = request.files["image"]
+
+    if fichier.filename == "":
+        return jsonify({
+            "success": False,
+            "message": "Nom de fichier vide"
+        }), 400
+
+    nom_fichier = "image.jpg"
+
+    chemin = os.path.join(UPLOAD_FOLDER, nom_fichier)
+
+    fichier.save(chemin)
+
+    return jsonify({
+        "success": True,
+        "message": "Image enregistrée",
+        "filename": nom_fichier,
+        "image_url": f"{request.host_url}uploads/{nom_fichier}"
+    })
+@app.route("/uploads/<filename>")
+def get_image(filename):
+    return send_from_directory(UPLOAD_FOLDER, filename)
+
 if __name__ == "__main__":
     socketio.run(app, port=5000, debug=True, host='0.0.0.0', allow_unsafe_werkzeug=True)
     #socketio.run(app, port=5000,debug=True)
     #app.run(debug=True)
+
+    
